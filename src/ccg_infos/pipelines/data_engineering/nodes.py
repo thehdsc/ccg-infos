@@ -36,6 +36,7 @@ from typing import Any, Dict
 import pandas as pd
 from typing import Dict, List
 from sklearn.preprocessing import LabelEncoder
+from .synthesizer import generate_data_leadtime
 
 def change_column_order(df, col_name, index):
     cols = df.columns.tolist()
@@ -43,11 +44,9 @@ def change_column_order(df, col_name, index):
     cols.insert(index, col_name)
     return df[cols]
 
-def concat_data(sndoc2: pd.DataFrame,
-                snmart: pd.DataFrame,
-                snfam: pd.DataFrame,
-                sndoc22: pd.DataFrame,
-                forn: pd.DataFrame) -> pd.DataFrame:
+
+def map_data(sndoc2: pd.DataFrame,
+             sndoc22: pd.DataFrame) -> List:
     """Node for concat the different "sn_doc2", "MULTI_sn_mart", "MULTI_sn_fam", 
     "Sn_Doc2-dadosAdicionaisFio" and "MULTI_ct_terc1" and execute a set of transformations
     so that in the end of the process we can have a clean dataset with the following structure:
@@ -60,9 +59,6 @@ def concat_data(sndoc2: pd.DataFrame,
     sndoc22["doc2_qtdart"] = sndoc22["doc2_qtdart"].astype("str").str.replace(",",".").astype("float")
     sndoc22["doc2_qtdtrat"] = sndoc22["doc2_qtdtrat"].astype("str").str.replace(",",".").astype("float")
 
-    #Create fornecedor DataFrame with 'terc1_cod' and 'pais_cod' from forn dataset
-    fornecedor = forn.loc[(forn["empr_cod"] == 1),["terc1_cod", "pais_cod"]]
-    
     #Select documents with 120 as origin and 130 as reception
     orig120 = sndoc2.loc[(sndoc2["cdoc_cod"] == 120),["empr_cod", "cdoc_cod", "doc1_num", "mart_cod", "doc2_linha","doc2_qtdart",
                                                   "doc2_qtdtrat","doc2_pedida","doc1_emiss", "terc1_cod"]]
@@ -98,7 +94,7 @@ def concat_data(sndoc2: pd.DataFrame,
     orig122.rename(columns={'doc2_pedida': 'data_prevista'}, inplace=True)
     orig132.rename(columns={'doc1_emiss': 'data_recebida'}, inplace=True)
     
-    #Map DataFrame
+    #1Map DataFrame
     orig120['id120'] = orig120['empr_cod'].map(str) + orig120['cdoc_cod'].map(str) + orig120['doc1_num'].map(str) + orig120['doc2_linha'].map(str)
     orig120.drop(['empr_cod', 'cdoc_cod','mart_cod','doc1_num','doc2_linha'], axis=1, inplace=True)
     orig130['id130'] = orig130['empr_cod'].map(str) + orig130['cdoc_cod'].map(str) + orig130['doc1_num'].map(str) + orig130['doc2_linha'].map(str)
@@ -116,7 +112,6 @@ def concat_data(sndoc2: pd.DataFrame,
     orig132.drop(['empr_cod', 'cdoc_cod','doc1_num','doc2_linha','cdoc_origcod','doc1_orignum','doc2_origlinha' ], axis=1, inplace=True)
 
     #Order columns 
-    #Ordenar colunas
     orig120 = change_column_order(orig120, 'id120', 0)
     orig130 = change_column_order(orig130, 'id130', 0)
     orig130 = change_column_order(orig130, 'id120', 1)
@@ -127,38 +122,58 @@ def concat_data(sndoc2: pd.DataFrame,
     orig132 = change_column_order(orig132, 'id130', 0)
     orig132 = change_column_order(orig132, 'id120', 1)
 
-    #Join DataFrames
+    return [orig120, orig122, orig124, orig130, orig132, orig134 ]
+
+def concat_data(orig120: pd.DataFrame,
+                orig122: pd.DataFrame,
+                orig124: pd.DataFrame,
+                orig130: pd.DataFrame,
+                orig132: pd.DataFrame,
+                orig134: pd.DataFrame) -> pd.DataFrame:
+    """Node for merge the previous 'orig120', 'orig122', 'orig124', 'orig130', 'orig132', 'orig134'
+    and concat them. At the same time some known misplaced dates are corrected.  """
+    
     fin1 = pd.merge(orig130, orig120, on='id120', how='inner')
     fin2 = pd.merge(orig132, orig122, on='id120', how='inner')
     fin3 = pd.merge(orig134, orig124, on='id124', how='inner')
 
-    #Rename columns 'id134' for 'id130' and 'id124' for 'id120'
     fin3.rename(columns={'id134': 'id130'}, inplace=True)
     fin3.rename(columns={'id124': 'id120'}, inplace=True)
 
-    #Concat DataFrames
+    #2Concat DataFrames
     final = pd.concat([fin1, fin2, fin3], axis=0)
 
-    #Drop 'doc2_qtdreceb'
+    #2Drop 'doc2_qtdreceb'
     final.drop(['doc2_qtdreceb'], axis=1, inplace=True)
 
-    #Reorder columns
+    #2Reorder columns
     final = change_column_order(final, 'data_ocompra',3)
     final = change_column_order(final, 'data_recebida',4)
 
-    #Transformations on errors
+    #2Transformations on errors
     final["data_prevista"] = final["data_prevista"].replace("27/06/9201","27/06/2019")
     final["data_prevista"] = final["data_prevista"].replace("19/04/0218","19/04/2018")
 
-    final[['data_recebida','data_prevista', 'data_ocompra']] = final[['data_recebida','data_prevista', 'data_ocompra']].apply(pd.to_datetime, format= "%d/%m/%Y")
-    final['dias'] = (final['data_recebida'] - final['data_prevista']).dt.days
+    intermediate_01 = final
 
-    final['ldtime'] = (final['data_recebida'] - final['data_ocompra']).dt.days
-    final['bool'] = (final['terc1_cod_x'] == final['terc1_cod_y'])
-    final.drop(['bool', 'terc1_cod_y'], axis=1, inplace=True)
-    final.rename(columns={'terc1_cod_x': 'terc1_cod'}, inplace=True)
+    return intermediate_01
 
-    # Lista de produtos e respetiva familia
+def select_data(intermediate_01: pd.DataFrame,
+                snmart: pd.DataFrame,
+                snfam: pd.DataFrame,
+                forn: pd.DataFrame) -> pd.DataFrame:
+    
+    fornecedor = forn.loc[(forn["empr_cod"] == 1),["terc1_cod", "pais_cod"]]
+    intermediate_01[['data_recebida','data_prevista', 'data_ocompra']] = intermediate_01[['data_recebida','data_prevista', 'data_ocompra']].apply(pd.to_datetime, format= "%d/%m/%Y")
+    intermediate_01['dias'] = (intermediate_01['data_recebida'] - intermediate_01['data_prevista']).dt.days
+
+    intermediate_01['ldtime'] = (intermediate_01['data_recebida'] - intermediate_01['data_ocompra']).dt.days
+
+    intermediate_01['bool'] = (intermediate_01['terc1_cod_x'] == intermediate_01['terc1_cod_y'])
+    intermediate_01.drop(['bool', 'terc1_cod_y'], axis=1, inplace=True)
+    intermediate_01.rename(columns={'terc1_cod_x': 'terc1_cod'}, inplace=True)
+
+    #Lista de produtos e respetiva familia
     produto = snmart.loc[(snmart["empr_cod"] == 1),["fam_cod","mart_cod", "mart_descr1"]]
     familia = snfam.loc[(snfam["empr_cod"] == 1),["fam_cod","fam_descr1"]]
 
@@ -173,35 +188,37 @@ def concat_data(sndoc2: pd.DataFrame,
 
     #dicionario para o fornecedor
     for_dict = dict(zip(fornecedor['terc1_cod'], fornecedor['pais_cod']))
-    final['terc1_cod']= final['terc1_cod'].map(for_dict).fillna(final['terc1_cod'])
-    final['terc1_cod'].value_counts()
+    intermediate_01['terc1_cod']= intermediate_01['terc1_cod'].map(for_dict).fillna(intermediate_01['terc1_cod'])
 
     #Criar coluna nova no dataset final
-    final["famil"] = final['mart_cod'].map(prod_dict)
+    intermediate_01["famil"] = intermediate_01['mart_cod'].map(prod_dict)
 
     #remover linhas de outros tipos de produtos
     options = ['ACESSÓRIOS DE EMBALAGEM', 'ACESSÓRIOS GERAIS', 'SERVIÇOS','DIVERSOS', 'PRODUTO ACABADO'] 
-    final = final[-final["famil"].isin(options)]
+    intermediate_01 = intermediate_01[-intermediate_01["famil"].isin(options)]
 
-    final.drop(final[final.doc2_qtdart == 0.001].index, inplace=True)
+    #Drop misplaced entry
+    intermediate_01.drop(intermediate_01[intermediate_01.doc2_qtdart == 0.001].index, inplace=True)
 
-    return final
+    primary_01 = intermediate_01
 
-def separate_data(final: pd.DataFrame) -> List:
+    return primary_01
+
+
+def split_data(primary_01: pd.DataFrame) -> List:
     """Node for split previous contact DataFrame and create two new
     DataFrames por different purposes: "leadtime" and "days"
     """
 
-    final["bool_leadtime"] = (final["data_recebida"] >= final["data_ocompra"])
-    final["bool_leadtime"].value_counts(normalize=True)*100
-    if (final["data_prevista"] is pd.NaT):
-        final["bool_days"] = False
+    primary_01["bool_leadtime"] = (primary_01["data_recebida"] >= primary_01["data_ocompra"])
+    if (primary_01["data_prevista"] is pd.NaT):
+        primary_01["bool_days"] = False
     else:
-        final["bool_days"] = (final["data_prevista"] >= final["data_ocompra"])
+        primary_01["bool_days"] = (primary_01["data_prevista"] >= primary_01["data_ocompra"])
 
     #Criar dataset para leadtime e para os dias 
-    leadtime = final.loc[:,['terc1_cod', 'mart_cod', 'doc2_qtdart', 'data_ocompra', 'data_recebida', 'ldtime', 'bool_leadtime']]
-    days = final.loc[:,['terc1_cod', 'mart_cod', 'doc2_qtdart','data_ocompra', 'data_prevista', 'data_recebida','dias', 'bool_days']]
+    leadtime = primary_01.loc[:,['terc1_cod', 'mart_cod', 'doc2_qtdart', 'data_ocompra', 'data_recebida', 'ldtime', 'bool_leadtime']]
+    days = primary_01.loc[:,['terc1_cod', 'mart_cod', 'doc2_qtdart','data_ocompra', 'data_prevista', 'data_recebida','dias', 'bool_days']]
 
     #Remover linhas onde o bool_leadtime é falso e, posteriormente, remover a coluna bool_leadtime
     leadtime.drop(leadtime[leadtime.bool_leadtime == False].index, inplace=True)
@@ -224,6 +241,7 @@ def separate_data(final: pd.DataFrame) -> List:
 
     leadtime.drop(leadtime[leadtime.ldtime >= 180].index, inplace=True)
 
+    #Label encoder
     leadtime['mart_cod'] = LabelEncoder().fit_transform(leadtime['mart_cod'])
 
     ##DAYS
@@ -248,6 +266,19 @@ def separate_data(final: pd.DataFrame) -> List:
     days.drop(days[days.dias <= -60].index, inplace=True)
     days.drop(days[days.dias >= 180].index, inplace=True)
 
+   #Label Encoder 
     days['mart_cod'] = LabelEncoder().fit_transform(days['mart_cod'])
+    
+    feature_leadtime = leadtime
+    feature_days = days
 
-    return [leadtime, days]
+    return [feature_leadtime, feature_days]
+
+def generate_synthetic_data(feature_leadtime: pd.DataFrame, parameters: Dict) -> List:
+
+    synthetic_leadtime_01 = generate_data_leadtime(feature_leadtime, parameters["synthesizer_01"])
+    synthetic_leadtime_02 = generate_data_leadtime(feature_leadtime, parameters["synthesizer_02"])
+
+    return [synthetic_leadtime_01, synthetic_leadtime_02]
+
+

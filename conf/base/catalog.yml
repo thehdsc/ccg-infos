@@ -83,21 +83,97 @@ sn_doc2:
     encoding: "latin"
     engine: "python"
 
-final_concat:
+orig120:
    type: pandas.CSVDataSet
-   filepath: data/02_intermediate/final_concat.csv
+   filepath: data/02_intermediate/orig120.csv
+   layer: intermediate
+   load_args:
+    sep: ','
+    encoding: "latin"
+  
+orig122:
+   type: pandas.CSVDataSet
+   filepath: data/02_intermediate/orig122.csv
+   layer: intermediate
+   load_args:
+    sep: ','
+    encoding: "latin"
+  
+orig124:
+   type: pandas.CSVDataSet
+   filepath: data/02_intermediate/orig124.csv
    layer: intermediate
    load_args:
     sep: ','
     encoding: "latin"
 
-leadtime:
+orig130:
    type: pandas.CSVDataSet
-   filepath: data/02_intermediate/leadtime.csv
+   filepath: data/02_intermediate/orig130.csv
    layer: intermediate
+   load_args:
+    sep: ','
+    encoding: "latin"
+  
+orig132:
+   type: pandas.CSVDataSet
+   filepath: data/02_intermediate/orig132.csv
+   layer: intermediate
+   load_args:
+    sep: ','
+    encoding: "latin"
+  
+orig134:
+   type: pandas.CSVDataSet
+   filepath: data/02_intermediate/orig134.csv
+   layer: intermediate
+   load_args:
+    sep: ','
+    encoding: "latin"
 
-days:
+intermediate_01:
    type: pandas.CSVDataSet
-   filepath: data/02_intermediate/days.csv
+   filepath: data/02_intermediate/intermediate_01.csv
    layer: intermediate
+   load_args:
+    sep: ','
+    encoding: "latin"
+
+primary_01:
+   type: pandas.CSVDataSet
+   filepath: data/03_primary/primary_01.csv
+   layer: primary
+   load_args:
+    sep: ','
+    encoding: "latin"
+
+feature_leadtime:
+   type: pandas.CSVDataSet
+   filepath: data/04_feature/feature_leadtime.csv
+   layer: feature
+
+feature_days:
+   type: pandas.CSVDataSet
+   filepath: data/04_feature/feature_days.csv
+   layer: feature
+
+synthetic_leadtime_CTGAN:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/synthetic_days_ctgan.csv
+   layer: model_input
+
+synthetic_days_CTGAN:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/synthetic_leadtime_ctgan.csv
+   layer: model_input
+
+synthetic_leadtime_GaussianCopula:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/synthetic_days_gc.csv
+   layer: model_input
+
+synthetic_days_GaussianCopula:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/synthetic_leadtime_gc.csv
+   layer: model_input
 

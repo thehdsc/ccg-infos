@@ -34,25 +34,41 @@ Delete this when you start working on your own Kedro project.
 
 from kedro.pipeline import Pipeline, node
 
-from .nodes import (concat_data, separate_data)
+from .nodes import (map_data, concat_data, select_data, split_data, generate_synthetic_data)
 
 
 def create_pipeline(**kwargs):
     return Pipeline(
         [
-            node(
-                concat_data,
-                ["sn_doc2", "MULTI_sn_mart", "MULTI_sn_fam", "Sn_Doc2-dadosAdicionaisFio", "MULTI_ct_terc1"],
-                "final_concat",
-                name="concat",
-                tags="concat data",
+             node(
+                map_data,
+                ["sn_doc2", "Sn_Doc2-dadosAdicionaisFio"],
+                ["orig120", "orig122", "orig124", "orig130", "orig132", "orig134"],
+                tags="map",
             ),
             node(
-                separate_data,
-                "final_concat",
-                ["leadtime", "days"],
-                name="separate",
-                tags="separate",
+                concat_data,
+                ["orig120", "orig122", "orig124", "orig130", "orig132", "orig134"],
+                "intermediate_01",
+                tags="concat",
+            ),
+            node(
+                select_data,
+                ["intermediate_01", "MULTI_sn_mart", "MULTI_sn_fam", "MULTI_ct_terc1"],
+                "primary_01",
+                tags="select",
+            ),
+            node(
+                split_data,
+                "primary_01",
+                ["feature_leadtime", "feature_days"],
+                tags="split",
+            ),
+              node(
+                generate_synthetic_data,
+                ["feature_leadtime", "parameters"],
+                ["synthetic_leadtime_CTGAN", "synthetic_leadtime_GaussianCopula"],
+                tags="generate",
             )
         ]
     )
