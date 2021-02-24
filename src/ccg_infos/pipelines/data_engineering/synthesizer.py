@@ -69,14 +69,47 @@ constraints_leadtime = [
     leadtime
     ]
 
+#store all the constraints that we will use in our model
+constraints_days = [
+    quantidade,
+    artigo
+    ]
 
-def generate_data_leadtime(feature_leadtime, synthesizer):
+
+def generate_data_leadtime(feature_leadtime):
     feature_leadtime['data_ocompra'] = pd.to_datetime(feature_leadtime['data_ocompra'])
-    model = CTGAN(constraints=constraints_leadtime, field_transformers={
+    model_CTGAN = CTGAN(constraints=constraints_leadtime, field_transformers={
                                 'doc2_qtdart': 'integer',
                                 'data_ocompra': 'datetime',
                                 'ldtime': 'integer'
                             })
-    model.fit(feature_leadtime)
-    synthetic_leadtime_data = model.sample(len(feature_leadtime))
-    return synthetic_leadtime_data
+    model_GaussianCopula = CTGAN(constraints=constraints_leadtime, field_transformers={
+                                'doc2_qtdart': 'integer',
+                                'data_ocompra': 'datetime',
+                                'ldtime': 'integer'
+                            })
+    model_CTGAN.fit(feature_leadtime)
+    model_GaussianCopula.fit(feature_leadtime)
+    synthetic_leadtime_data_ctgan = model_CTGAN.sample(len(feature_leadtime))
+    synthetic_leadtime_data_gc = model_GaussianCopula.sample(len(feature_leadtime))
+
+    return synthetic_leadtime_data_ctgan, synthetic_leadtime_data_gc
+
+def generate_data_days(feature_days):
+    feature_days['data_prevista'] = pd.to_datetime(feature_days['data_prevista'])
+    model_CTGAN = CTGAN(constraints=constraints_days, field_transformers={
+                                'doc2_qtdart': 'integer',
+                                'data_prevista': 'datetime',
+                                'dias': 'integer'
+                            })
+    model_GaussianCopula = GaussianCopula(constraints=constraints_days, field_transformers={
+                                'doc2_qtdart': 'integer',
+                                'data_prevista': 'datetime',
+                                'dias': 'integer'
+                            })
+    model_CTGAN.fit(feature_days)
+    model_GaussianCopula.fit(feature_days)
+    synthetic_days_data_ctgan = model_CTGAN.sample(len(feature_days))
+    synthetic_days_data_gc = model_GaussianCopula.sample(len(feature_days))
+
+    return synthetic_days_data_ctgan, synthetic_days_data_gc

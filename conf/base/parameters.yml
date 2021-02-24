@@ -1,5 +1,9 @@
 # Parameters for the example pipeline. Feel free to delete these once you
 # remove the example pipeline from hooks.py and the example nodes in
 # `src/pipelines/`
-synthesizer_01: CTGAN
-synthesizer_02: GaussianCopula
+leadtime:
+  min: 0
+  max: 58
+days:
+  min: -30
+  max: 59

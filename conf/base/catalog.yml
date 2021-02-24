@@ -159,21 +159,40 @@ feature_days:
 
 synthetic_leadtime_CTGAN:
    type: pandas.CSVDataSet
-   filepath: data/05_model_input/synthetic_days_ctgan.csv
+   filepath: data/05_model_input/synthetic_leadtime_ctgan.csv
    layer: model_input
 
 synthetic_days_CTGAN:
    type: pandas.CSVDataSet
-   filepath: data/05_model_input/synthetic_leadtime_ctgan.csv
+   filepath: data/05_model_input/synthetic_days_ctgan.csv
    layer: model_input
 
 synthetic_leadtime_GaussianCopula:
    type: pandas.CSVDataSet
-   filepath: data/05_model_input/synthetic_days_gc.csv
+   filepath: data/05_model_input/synthetic_leadtime_gc.csv
    layer: model_input
 
 synthetic_days_GaussianCopula:
    type: pandas.CSVDataSet
-   filepath: data/05_model_input/synthetic_leadtime_gc.csv
+   filepath: data/05_model_input/synthetic_days_gc.csv
    layer: model_input
 
+result_leadtime_ctgan:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/result_leadtime_ctgan.csv
+   layer: model_input
+
+result_leadtime_gc:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/result_leadtime_gc.csv
+   layer: model_input
+
+result_days_ctgan:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/result_days_ctgan.csv
+   layer: model_input
+
+result_days_gc:
+   type: pandas.CSVDataSet
+   filepath: data/05_model_input/result_days_gc.csv
+   layer: model_input

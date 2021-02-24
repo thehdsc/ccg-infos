@@ -1,65 +1,47 @@
-# Copyright 2020 QuantumBlack Visual Analytics Limited
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
-# NONINFRINGEMENT. IN NO EVENT WILL THE LICENSOR OR OTHER CONTRIBUTORS
-# BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
-# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF, OR IN
-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#
-# The QuantumBlack Visual Analytics Limited ("QuantumBlack") name and logo
-# (either separately or in combination, "QuantumBlack Trademarks") are
-# trademarks of QuantumBlack. The License does not grant you any right or
-# license to the QuantumBlack Trademarks. You may not use the QuantumBlack
-# Trademarks or any confusingly similar mark as a trademark for your product,
-# or use the QuantumBlack Trademarks in any other manner that might cause
-# confusion in the marketplace, including but not limited to in advertising,
-# on websites, or on software.
-#
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""Example code for the nodes in the example pipeline. This code is meant
-just for illustrating basic Kedro features.
-
-PLEASE DELETE THIS FILE ONCE YOU START WORKING ON YOUR OWN PROJECT!
-"""
-
 from typing import Any, Dict
 
 import pandas as pd
+import numpy as np
 from typing import Dict, List
 from sklearn.preprocessing import LabelEncoder
-from .synthesizer import generate_data_leadtime
+from sklearn.preprocessing import StandardScaler
+from .synthesizer import generate_data_leadtime, generate_data_days
 
 def change_column_order(df, col_name, index):
+    """Auxiliar function to change column order
+
+        Args:
+            df: Data.
+            col_name: Name of the column to be reordered.
+            index: Index where the user wants the column to go.
+        Returns:
+            A dataframe reordered.
+
+    """
     cols = df.columns.tolist()
     cols.remove(col_name)
     cols.insert(index, col_name)
     return df[cols]
 
 
-def map_data(sndoc2: pd.DataFrame,
-             sndoc22: pd.DataFrame) -> List:
-    """Node for concat the different "sn_doc2", "MULTI_sn_mart", "MULTI_sn_fam", 
-    "Sn_Doc2-dadosAdicionaisFio" and "MULTI_ct_terc1" and execute a set of transformations
-    so that in the end of the process we can have a clean dataset with the following structure:
-    "id130","id120", "mart_cod", "data_ocompra", "data_recebida", "terc1_cod", "doc2_qtdart", "data_prevista", "dias", "ldtime", "famil"
+def origin_preprocessing(sndoc2: pd.DataFrame,
+                         sndoc22: pd.DataFrame) -> List:
+    """Replaces the decimal character from comma to point and transforms quantities to float type. Creates six different datasets 
+    based on the source and receipt codes of the documents and renames a set of fields for a better understanding.
+
+        Args:
+            sndoc2: Documents data.
+            sndoc22: Aditional documents data.
+        Returns:
+            A List with six pandas DataFrame containing the documents from different origins.
+
     """
-    
-    #Replace commas with dots and tranform quantities in floats
+    #Replace comma with point and tranform quantities in floats
     sndoc2["doc2_qtdart"] = sndoc2["doc2_qtdart"].astype("str").str.replace(",",".").astype("float")
     sndoc2["doc2_qtdtrat"] = sndoc2["doc2_qtdtrat"].astype("str").str.replace(",",".").astype("float")
     sndoc22["doc2_qtdart"] = sndoc22["doc2_qtdart"].astype("str").str.replace(",",".").astype("float")
     sndoc22["doc2_qtdtrat"] = sndoc22["doc2_qtdtrat"].astype("str").str.replace(",",".").astype("float")
 
-    #Select documents with 120 as origin and 130 as reception
     orig120 = sndoc2.loc[(sndoc2["cdoc_cod"] == 120),["empr_cod", "cdoc_cod", "doc1_num", "mart_cod", "doc2_linha","doc2_qtdart",
                                                   "doc2_qtdtrat","doc2_pedida","doc1_emiss", "terc1_cod"]]
 
@@ -94,7 +76,7 @@ def map_data(sndoc2: pd.DataFrame,
     orig122.rename(columns={'doc2_pedida': 'data_prevista'}, inplace=True)
     orig132.rename(columns={'doc1_emiss': 'data_recebida'}, inplace=True)
     
-    #1Map DataFrame
+    #Map DataFrame
     orig120['id120'] = orig120['empr_cod'].map(str) + orig120['cdoc_cod'].map(str) + orig120['doc1_num'].map(str) + orig120['doc2_linha'].map(str)
     orig120.drop(['empr_cod', 'cdoc_cod','mart_cod','doc1_num','doc2_linha'], axis=1, inplace=True)
     orig130['id130'] = orig130['empr_cod'].map(str) + orig130['cdoc_cod'].map(str) + orig130['doc1_num'].map(str) + orig130['doc2_linha'].map(str)
@@ -122,7 +104,7 @@ def map_data(sndoc2: pd.DataFrame,
     orig132 = change_column_order(orig132, 'id130', 0)
     orig132 = change_column_order(orig132, 'id120', 1)
 
-    return [orig120, orig122, orig124, orig130, orig132, orig134 ]
+    return [orig120, orig122, orig124, orig130, orig132, orig134]
 
 def concat_data(orig120: pd.DataFrame,
                 orig122: pd.DataFrame,
@@ -130,9 +112,20 @@ def concat_data(orig120: pd.DataFrame,
                 orig130: pd.DataFrame,
                 orig132: pd.DataFrame,
                 orig134: pd.DataFrame) -> pd.DataFrame:
-    """Node for merge the previous 'orig120', 'orig122', 'orig124', 'orig130', 'orig132', 'orig134'
-    and concat them. At the same time some known misplaced dates are corrected.  """
-    
+    """Merges the previous 'orig120', 'orig122', 'orig124', 'orig130', 'orig132', 'orig134'
+    created Dataframes and concat them. At the same time some known misplaced dates are corrected.
+
+        Args:
+            orig120: Documents with origin 120.
+            orig122: Documents with origin 122.
+            orig124: Documents with origin 124.
+            orig130: Documents with origin 130.
+            orig132: Documents with origin 132.
+            orig134: Documents with origin 134.
+        Returns:
+            A pandas DataFrame 'intermediate_01' containing all the documents merged and concatenated.
+
+    """
     fin1 = pd.merge(orig130, orig120, on='id120', how='inner')
     fin2 = pd.merge(orig132, orig122, on='id120', how='inner')
     fin3 = pd.merge(orig134, orig124, on='id124', how='inner')
@@ -140,17 +133,17 @@ def concat_data(orig120: pd.DataFrame,
     fin3.rename(columns={'id134': 'id130'}, inplace=True)
     fin3.rename(columns={'id124': 'id120'}, inplace=True)
 
-    #2Concat DataFrames
+    #Concat DataFrames
     final = pd.concat([fin1, fin2, fin3], axis=0)
 
-    #2Drop 'doc2_qtdreceb'
+    #Drop 'doc2_qtdreceb'
     final.drop(['doc2_qtdreceb'], axis=1, inplace=True)
 
-    #2Reorder columns
+    #Reorder columns
     final = change_column_order(final, 'data_ocompra',3)
     final = change_column_order(final, 'data_recebida',4)
 
-    #2Transformations on errors
+    #Transformations on errors
     final["data_prevista"] = final["data_prevista"].replace("27/06/9201","27/06/2019")
     final["data_prevista"] = final["data_prevista"].replace("19/04/0218","19/04/2018")
 
@@ -162,7 +155,17 @@ def select_data(intermediate_01: pd.DataFrame,
                 snmart: pd.DataFrame,
                 snfam: pd.DataFrame,
                 forn: pd.DataFrame) -> pd.DataFrame:
-    
+    """Calculates leadtime and days, and map the intermediate dataset with family, product and supllier.
+
+        Args:
+            intermediate_01: Documents transformed data.
+            snmart: Data with products.
+            snfam: Data with family.
+            forn: Data with suppliers.
+        Returns:
+            A pandas DataFrame 'primary_01' containing all the documents mapped with all their information.
+
+    """
     fornecedor = forn.loc[(forn["empr_cod"] == 1),["terc1_cod", "pais_cod"]]
     intermediate_01[['data_recebida','data_prevista', 'data_ocompra']] = intermediate_01[['data_recebida','data_prevista', 'data_ocompra']].apply(pd.to_datetime, format= "%d/%m/%Y")
     intermediate_01['dias'] = (intermediate_01['data_recebida'] - intermediate_01['data_prevista']).dt.days
@@ -205,9 +208,16 @@ def select_data(intermediate_01: pd.DataFrame,
     return primary_01
 
 
-def split_data(primary_01: pd.DataFrame) -> List:
-    """Node for split previous contact DataFrame and create two new
-    DataFrames por different purposes: "leadtime" and "days"
+def split_data_targets(primary_01: pd.DataFrame) -> List:
+    """Preprocessing of leadtime and days adding boolean columns based if 'data_recebida' is equal or greater that 'data_ocompra' and
+    if 'data_prevista' is not NaT, create two different DataFrame based on target, drop rows based on previous preprocessing 
+    drop duplicates and label encode (sklearn.preprocessing.LabelEncoder) 'mart_cod'.
+
+        Args:
+            primary_01: Merged, concatenated and preprocessed raw data.
+        Returns:
+            A List with two pandas DataFrame for the different 'leadtime' and 'days' targets.
+
     """
 
     primary_01["bool_leadtime"] = (primary_01["data_recebida"] >= primary_01["data_ocompra"])
@@ -274,11 +284,102 @@ def split_data(primary_01: pd.DataFrame) -> List:
 
     return [feature_leadtime, feature_days]
 
-def generate_synthetic_data(feature_leadtime: pd.DataFrame, parameters: Dict) -> List:
+def generate_synthetic_data_leadtime(feature_leadtime: pd.DataFrame) -> List:
+    """Generate synthetic data using Synthetic Data Vault (sdv.dev) CTGAN and GaussianCopula
+    methods for leadtime.
 
-    synthetic_leadtime_01 = generate_data_leadtime(feature_leadtime, parameters["synthesizer_01"])
-    synthetic_leadtime_02 = generate_data_leadtime(feature_leadtime, parameters["synthesizer_02"])
+        Args:
+            feature_leadtime: Data with the leadtime target.
+        Returns:
+            A List with two pandas DataFrame containing synthetic data generated by CTGAN and the other using
+            GaussianCopula.
+    """
+
+    synthetic_leadtime_01, synthetic_leadtime_02 = generate_data_leadtime(feature_leadtime)
 
     return [synthetic_leadtime_01, synthetic_leadtime_02]
+
+def generate_synthetic_data_days(feature_days: pd.DataFrame) -> List:
+    """Generate synthetic data using Synthetic Data Vault (sdv.dev) CTGAN and GaussianCopula
+    methods for days.
+
+        Args:
+            feature_days: Data with the days target.
+        Returns:
+            A List with two pandas DataFrame containing synthetic data generated by CTGAN and the other using
+            GaussianCopula.
+
+    """
+    synthetic_days_01, synthetic_days_02 = generate_data_days(feature_days)
+
+    return [synthetic_days_01, synthetic_days_02]
+
+
+def mix_real_synthtetic_leadtime(real_data: pd.DataFrame,
+                                synthethic_data: pd.DataFrame,
+                                parameters: Dict) -> pd.DataFrame:
+    """Concat real and synthetic leadtime data, shuffle, convert date fields to unix timestamp, standardize all fields except
+    the target 'leadtime' and drop rows based on a given target min and max.
+
+        Args:
+            real_data: Real leadtime data.
+            synthethic_data: Synthetic leadtime data.
+            parameters: Parameters defined in parameters.yml
+        Returns:
+            A pandas DataFrame with the leadtime data output.
+    """
+
+    frames = [real_data, synthethic_data]
+    #Concat the real and synthetic DataFrames
+    result = pd.concat(frames)
+    #Reset concat output index
+    result = result.sample(frac=1).reset_index(drop=True)
+    #APPLY UNIX TIMESTAMP TO LEADTIME DATETIME COLUMN 'data_ocompra'
+    result['data_ocompra'] = pd.to_datetime(result['data_ocompra']).astype(np.int64)
+    #STANDARDIZE LEADTIME DATAFRAME
+    result[['mart_cod','doc2_qtdart','data_ocompra']] = StandardScaler().fit_transform(result[['mart_cod','doc2_qtdart','data_ocompra']])
+    #Apply min to leadtime
+    result.drop(result[result.ldtime < parameters['leadtime']['min']].index, inplace=True)
+    #Apply max to leadtime
+    result.drop(result[result.ldtime > parameters['leadtime']['max']].index, inplace=True)
+    return result
+
+def mix_real_synthtetic_days(real_data: pd.DataFrame,
+                            synthethic_data: pd.DataFrame,
+                            parameters: Dict) -> pd.DataFrame:
+    """Concat real and synthetic days data, shuffle, convert date fields to unix timestamp, standardize all fields except
+    the target 'dias' and drop rows based on a given target min and max.
+
+        Args:
+            real_data: Real days data.
+            synthethic_data: Synthetic days data.
+            parameters: Parameters defined in parameters.yml
+        Returns:
+            A pandas DataFrame with the Days data output.
+    """
+    frames = [real_data, synthethic_data]
+    #Concat the real and synthetic DataFrames
+    result = pd.concat(frames)
+    #Shuffle and Reset concat output index
+    result = result.sample(frac=1).reset_index(drop=True)
+    #APPLY UNIX TIMESTAMP TO LEADTIME DATETIME COLUMN 'data_ocompra'
+    result['data_prevista'] = pd.to_datetime(result['data_prevista']).astype(np.int64)
+    #STANDARDIZE LEADTIME DATAFRAME
+    result[['mart_cod','doc2_qtdart','data_prevista']] = StandardScaler().fit_transform(result[['mart_cod','doc2_qtdart','data_prevista']])
+    #Apply min to leadtime
+    result.drop(result[result.dias < parameters['days']['min']].index, inplace=True)
+    #Apply max to leadtime
+    result.drop(result[result.dias > parameters['days']['max']].index, inplace=True)
+    return result
+
+
+
+
+
+
+
+
+
+
 
 

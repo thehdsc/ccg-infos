@@ -34,14 +34,16 @@ Delete this when you start working on your own Kedro project.
 
 from kedro.pipeline import Pipeline, node
 
-from .nodes import (map_data, concat_data, select_data, split_data, generate_synthetic_data)
+from .nodes import (origin_preprocessing, concat_data, select_data, split_data_targets, 
+                    generate_synthetic_data_leadtime,generate_synthetic_data_days,
+                    mix_real_synthtetic_leadtime, mix_real_synthtetic_days)
 
 
 def create_pipeline(**kwargs):
     return Pipeline(
         [
              node(
-                map_data,
+                origin_preprocessing,
                 ["sn_doc2", "Sn_Doc2-dadosAdicionaisFio"],
                 ["orig120", "orig122", "orig124", "orig130", "orig132", "orig134"],
                 tags="map",
@@ -56,19 +58,49 @@ def create_pipeline(**kwargs):
                 select_data,
                 ["intermediate_01", "MULTI_sn_mart", "MULTI_sn_fam", "MULTI_ct_terc1"],
                 "primary_01",
-                tags="select",
+                tags="select"
             ),
             node(
-                split_data,
+                split_data_targets,
                 "primary_01",
                 ["feature_leadtime", "feature_days"],
-                tags="split",
+                tags="split"
             ),
               node(
-                generate_synthetic_data,
-                ["feature_leadtime", "parameters"],
+                generate_synthetic_data_leadtime,
+                ["feature_leadtime"],
                 ["synthetic_leadtime_CTGAN", "synthetic_leadtime_GaussianCopula"],
-                tags="generate",
+                tags="generate"
+            ),
+            node(
+                generate_synthetic_data_days,
+                ["feature_days"],
+                ["synthetic_days_CTGAN", "synthetic_days_GaussianCopula"],
+                tags="generate"
+            ),
+            node(
+                mix_real_synthtetic_leadtime,
+                ["feature_leadtime", "synthetic_leadtime_CTGAN", "parameters"],
+                "result_leadtime_ctgan",
+                tags="shuffle"
+            ),
+            node(
+                mix_real_synthtetic_leadtime,
+                ["feature_leadtime", "synthetic_leadtime_GaussianCopula", "parameters"],
+                "result_leadtime_gc",
+                tags="shuffle"
+            ),
+            node(
+                mix_real_synthtetic_days,
+                ["feature_days", "synthetic_days_CTGAN", "parameters"],
+                "result_days_ctgan",
+                tags="shuffle"
+            ),
+            node(
+                mix_real_synthtetic_days,
+                ["feature_days", "synthetic_days_GaussianCopula", "parameters"],
+                "result_days_gc",
+                tags="shuffle"
             )
         ]
     )
