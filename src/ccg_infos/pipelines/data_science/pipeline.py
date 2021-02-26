@@ -33,7 +33,14 @@ Delete this when you start working on your own Kedro project.
 """
 
 from kedro.pipeline import Pipeline, node
-
+from .nodes import (create_kfolds)
 
 def create_pipeline(**kwargs):
-    return Pipeline([])
+    return Pipeline([
+           node(
+                create_kfolds,
+                ["result_days_ctgan", "CTGAN_leadtime"],
+                "",
+                tags="kfolds"
+            )
+    ])

@@ -7,3 +7,10 @@ leadtime:
 days:
   min: -30
   max: 59
+kfolds:
+  ctgan: 
+    leadtime: CTGAN_leadtime
+    days: CTGAN_days
+  gc:
+    leadtime: GC_leadtime
+    days: CTGAN_days

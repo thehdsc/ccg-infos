@@ -1,5 +1,7 @@
 dvc==1.11.16
 ctgan==0.3.2.dev0
+sdv>=0.8.0
+h2o>=3.32.0.4
 black==v19.10b0
 flake8>=3.7.9, <4.0
 ipython~=7.0

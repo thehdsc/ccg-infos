@@ -209,7 +209,7 @@ def select_data(intermediate_01: pd.DataFrame,
 
 
 def split_data_targets(primary_01: pd.DataFrame) -> List:
-    """Preprocessing of leadtime and days adding boolean columns based if 'data_recebida' is equal or greater that 'data_ocompra' and
+    """Preprocessment of leadtime and days adding boolean columns based if 'data_recebida' is equal or greater than 'data_ocompra' and
     if 'data_prevista' is not NaT, create two different DataFrame based on target, drop rows based on previous preprocessing 
     drop duplicates and label encode (sklearn.preprocessing.LabelEncoder) 'mart_cod'.
 
